@@ -3,6 +3,7 @@
 #include<iostream>
 #include <algorithm>
 #include"Mail.h"
+#include"string_ulti.h"
 #include"Treap.h"
 //#include"Timer.h"
 #include"Query_related.h"
@@ -13,7 +14,7 @@ std::ifstream inFileHandler;
 std::string fileName;
 
 //for main.cpp query()
-bool flag_from , flag_to , flag_date ;
+bool flag_from , flag_to , flag_date , flag_sentence , flag_display_content;
 std::string sender, receiver;
 unsigned long long int start_t , end_t ;
 std::vector<std::string> postfix ;
@@ -33,9 +34,6 @@ void query();
 void information();
 
 int main(){
-	#if DEBUG == 1
-	Timer main_timer("main function");
-	#endif
 
 	std::string command;
 	while(std::cin >> command){
@@ -146,9 +144,10 @@ void longest(){
 
 void query(){
 	//extern variable
-	flag_from = 0 ; flag_to = 0 ; flag_date = 0 ;
+	flag_from = 0 ; flag_to = 0 ; flag_date = 0 ; flag_sentence = 0; flag_display_content = 0;
 	start_t = 0; end_t = 300000000000;	
 	
+	std::string sentence;
 	std::string expression;
 
 	//flags getter
@@ -178,6 +177,40 @@ void query(){
 				end_t = stoull(expression.substr(15,12));
 			}
 		}
+		else if(expression.at(dash+1) == 's'){
+			flag_sentence = true;
+			//do sentence
+			if(expression.size() > 3 && expression[expression.size()-1] != '\"'){
+				std::string tmp;
+				std::getline(std::cin, tmp, '\"');
+				sentence = expression.substr(3) + tmp;
+			}
+			else if(expression.size() > 3 && expression[expression.size()-1] == '\"'){
+				sentence = expression.substr(3, expression.size()-4);
+			}
+			else{
+				std::string tmp;
+				std::getline(std::cin, tmp, '\"');
+				sentence = tmp;
+			}
+
+		}
+		else if(expression == "--content"){
+			flag_display_content = true;
+			//do sentence
+
+		}
+	}
+
+	//make real expression for sentence query
+	if(flag_sentence){
+		std::string tmp = sentence_to_expression(sentence);
+		if(!tmp.empty()){
+			expression = "(" + expression + ")&" + sentence_to_expression(sentence); 
+		}
+		else{
+			//do nothing
+		}
 	}
 
 	//check whether the flag is valid
@@ -196,18 +229,19 @@ void query(){
 	Query_related::postfix_print();
 	#endif
 
+	std::vector<Mail*> out_mail_ptrs;
 	if(flag_from || flag_to){
 		if(flag_from && flag_to){
 			if(Query_related::from_dict[sender].size() < Query_related::to_dict[receiver].size())
-				Query_related::query_conduct_from();
+				Query_related::query_conduct_from(out_mail_ptrs);
 			else 
-				Query_related::query_conduct_to();
+				Query_related::query_conduct_to(out_mail_ptrs);
 		}
-		else if(flag_from) Query_related::query_conduct_from();
-		else Query_related::query_conduct_to();
+		else if(flag_from) Query_related::query_conduct_from(out_mail_ptrs);
+		else Query_related::query_conduct_to(out_mail_ptrs);
 	}
 	else{// deal with no flags query
-		std::vector<int> valid_id;
+		// std::vector<int> valid_id;
 		for( auto& mail_curr : all_mails ){ // unordered_set
 			if(flag_date && !(start_t <= mail_curr.getDate() && mail_curr.getDate()<=end_t )) continue;
 			std::stack<bool> Container;
@@ -230,25 +264,59 @@ void query(){
 				}
 			}
 			if(Container.size() != 1) printf("Error happened.\n");
-			else if(Container.top() == true) valid_id.emplace_back(mail_curr.getid());
+			else if(Container.top() == true) out_mail_ptrs.push_back(&mail_curr);
 		}
-
-		//print
-		if(valid_id.size() == 0) printf("-\n");
-		else{
-			sort(valid_id.begin(), valid_id.end());
-			printf("%d", valid_id[0]);
-			for(int i = 1; i < valid_id.size(); i++){
-				printf(" %d",valid_id[i]);
-			}
-			printf("\n");
-		}	
 	}	
+		if(flag_sentence){
+			//don't output the mail that don't contain sentence
+			sentence = sentence_convert_check(sentence);
+			std::vector<Mail*> tmp;
+			for(auto iter = out_mail_ptrs.begin(); iter < out_mail_ptrs.end(); iter++){
+				if((*iter)->check_mail.find(sentence) != std::string::npos){
+					tmp.push_back((*iter));
+				}
+			}
+			out_mail_ptrs = tmp;
+
+		}
+	
+	if(out_mail_ptrs.size() > 1) std::sort(out_mail_ptrs.begin(), out_mail_ptrs.end(), [](Mail* a, Mail* b){return a->getid() < b->getid();});
+	if(flag_display_content){
+		if(out_mail_ptrs.size() == 0) printf("-\n");
+		else{
+			for(auto ptr : out_mail_ptrs){
+				ptr->print_full_mail();
+			}
+		}
+	}
+	else{
+		if(out_mail_ptrs.size() == 0) printf("-\n");
+		else{
+			std::cout << out_mail_ptrs[0]->getid();
+			for(int i = 1; i < out_mail_ptrs.size(); i++){
+				std::cout << " " << out_mail_ptrs[i]->getid();
+			}
+			std::cout << std::endl;
+		}
+	}
+
+	//print
+	// if(valid_id.size() == 0) printf("-\n");
+	// else{
+	// 	sort(valid_id.begin(), valid_id.end());
+	// 	printf("%d", valid_id[0]);
+	// 	for(int i = 1; i < valid_id.size(); i++){
+	// 		printf(" %d",valid_id[i]);
+	// 	}
+	// 	printf("\n");
+	// }	
 }
 
 void information(){
 	std::string name;
 	std::cin >> name;
+	string_tolower(name);
+
 	// (1) The user sends most mail to "name" :
 	// (2) The user receives most mail from "name" :
 	// (3) The latest mail ID and date in "name"'s mailbox: 

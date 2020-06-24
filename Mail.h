@@ -8,6 +8,7 @@
 #include<cstring>
 #include<utility>
 #include<iostream>
+#include"string_ulti.h"
 //#include"Datetime.h"
 #include"globeVar.h"
 
@@ -35,36 +36,7 @@ int monthConverter(const std::string& m){
     else if(m == "December") return 12;
     else return -1;
 }
-std::size_t find_first_alnum(const std::string& str, std::size_t startPos){
-	try{
-		while(std::isalnum(str.at(startPos)) == 0){
-			startPos++;
-		}
-	}
-	catch(std::out_of_range e){
-		return std::string::npos;
-	}
-	return startPos;
-}
 
-std::size_t find_first_not_alnum(const std::string& str, std::size_t startPos){
-	try{
-		while(std::isalnum(str.at(startPos)) != 0){
-			startPos++;
-		}
-	}
-	catch(std::out_of_range e){
-		return std::string::npos;
-	}
-	return startPos;
-}
-
-std::string& string_tolower(std::string& str){
-	for(char& chr : str){
-		chr = tolower(chr);
-	}
-	return str;
-}
 //heavy data type, should avoid copy
 class Mail{
 private:
@@ -77,10 +49,15 @@ private:
 	unsigned long long int date;
 	std::unordered_set<std::string> content_words;
 	int alphNum_cnt;
+public:
+	static int output_row_length;
+	std::string raw_mail;
+	std::string check_mail;
 
 public:
 	Mail();
 	void print();
+	void print_full_mail();
 	int getid(){return id;}
 	std::string& getFrom(){return from;}
 	std::string& getTo(){return to;}
@@ -99,6 +76,7 @@ public:
 	}
 };
 
+int Mail::output_row_length = 60;
 
 void Mail::print(){
 	std::cout << "From: " << from << std::endl;
@@ -116,22 +94,24 @@ Mail::Mail() : alphNum_cnt(0){
 	
 
 	// std::cout << "contructing Mail\n";
-	
+	std::getline(inFileHandler, raw_mail, '\0');
+	std::stringstream in_str(raw_mail);
+	check_mail.clear();
 
 	//set [from]
-	inFileHandler.ignore(6);
-	inFileHandler >> from;
+	in_str.ignore(6);
+	in_str >> from;
 	from = string_tolower(from);//?
 
 	//set [date]
 	int year, month, day, hour, minute;
-	inFileHandler.ignore(6);
-	//inFileHandler >> date.day >> Mail_construct::str_month;
-	inFileHandler >> day >> Mail_construct::str_month;
+	in_str.ignore(6);
+	//in_str >> date.day >> Mail_construct::str_month;
+	in_str >> day >> Mail_construct::str_month;
 	month = monthConverter(Mail_construct::str_month);
-	inFileHandler >> year;
-	inFileHandler.ignore(3);
-	inFileHandler >> Mail_construct::str_hr_min;
+	in_str >> year;
+	in_str.ignore(3);
+	in_str >> Mail_construct::str_hr_min;
 	char* colomn = strchr(Mail_construct::str_hr_min, ':');
 	*colomn = '\0';
 	colomn++;
@@ -140,12 +120,12 @@ Mail::Mail() : alphNum_cnt(0){
 	date = (unsigned long long int)year*100000000 + month*1000000 + day*10000 + hour *100 + minute;
 
 	//set id
-	inFileHandler.ignore(12);
-	inFileHandler >> id;
+	in_str.ignore(12);
+	in_str >> id;
 
 	//set subject
-	inFileHandler.ignore(1);
-	std::getline(inFileHandler, Mail_construct::str_subject, '\n');
+	in_str.ignore(1);
+	std::getline(in_str, Mail_construct::str_subject, '\n');
 	int start = 9;
     int end = 9;
     while(true){ //could get better performer
@@ -160,22 +140,24 @@ Mail::Mail() : alphNum_cnt(0){
 			std::string tmp(Mail_construct::str_subject.substr(start));
 			//content_words.insert(std::move(string_tolower(tmp)));
 			content_words.insert(string_tolower(tmp));
+			check_mail.append(string_tolower(tmp));
 			//globeVar::add_words(tmp);
             break;
         }
 		std::string tmp(Mail_construct::str_subject.substr(start, end - start));
 		content_words.insert(string_tolower(tmp));
+		check_mail.append(string_tolower(tmp));
 		//globeVar::add_words(tmp);
     }
 
 	//set to
-	inFileHandler.ignore(4);
-	inFileHandler >> to;
+	in_str.ignore(4);
+	in_str >> to;
 	to = string_tolower(to);//?
 
 	//set content
-	inFileHandler.ignore(9);
-	std::getline(inFileHandler, Mail_construct::str_content, '\0');
+	in_str.ignore(9);
+	std::getline(in_str, Mail_construct::str_content, '\0');
 	start = 0;
 	end = 0;
 	 while(true){ //could get better performer
@@ -189,6 +171,7 @@ Mail::Mail() : alphNum_cnt(0){
 			std::string tmp(Mail_construct::str_content.substr(start));
 			std::unordered_set<std::string>::iterator iter;
 			bool s;
+			check_mail.append(string_tolower(tmp));
 			std::tie(iter, s) = content_words.insert(std::move(string_tolower(tmp)));
 			alphNum_cnt += iter->length();
 			//globeVar::add_words(*iter);
@@ -197,9 +180,28 @@ Mail::Mail() : alphNum_cnt(0){
 		std::string tmp(Mail_construct::str_content.substr(start, end - start));
 		std::unordered_set<std::string>::iterator iter;
 		bool s;
+		check_mail.append(string_tolower(tmp));
 		std::tie(iter, s) = content_words.insert(std::move(string_tolower(tmp)));
 		alphNum_cnt += iter->length();
 		//globeVar::add_words(*iter);
     }
 
+}
+
+void Mail::print_full_mail(){
+	// std::cout << raw_mail;
+	std::stringstream in_str(raw_mail);
+	std::string row;
+	for(int i = 0; i < output_row_length + 2; i++) std::cout << "="; std::cout << std::endl;
+	while(std::getline(in_str, row, '\n'))
+	{
+		while(row.size() > output_row_length){
+			std::cout << "*" << row.substr(0, output_row_length) << "*\n";
+			row = row.substr(output_row_length);
+		}
+		std::cout << "*" << row;
+		for(int i = 0; i < output_row_length - row.size(); i++) std::cout << " "; std::cout << "*\n";
+	}
+	for(int i = 0; i < output_row_length+2; i++) std::cout << "="; std::cout << std::endl;
+	
 }

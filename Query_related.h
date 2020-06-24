@@ -39,10 +39,11 @@ namespace Query_related{
             to_dict.erase(mail->getTo());
         }
     }
-    void query_conduct_from(){
+    void query_conduct_from(std::vector<Mail*>& out_mail_ptrs){
         #if DEBUG ==1
         postfix_print();
         #endif
+
         bool print_start = false;
         for( auto& mail_curr : from_dict[sender] ){ // unordered_set
 			if(flag_to && mail_curr.second->getTo()!= receiver) continue;
@@ -68,20 +69,24 @@ namespace Query_related{
             }
             if(Container.size() != 1) printf("Error happened.\n");
             else if(Container.top() == true){
-                if(print_start) printf(" %d", mail_curr.first);
-                else{
-                    printf("%d", mail_curr.first);
-                    print_start = true;
-                }
+				out_mail_ptrs.push_back(&(*(mail_curr.second)));
+
+                // if(print_start) printf(" %d", mail_curr.first);
+                // else{
+                //     printf("%d", mail_curr.first);
+                //     print_start = true;
+                // }
             } 
         }
-        if(print_start) printf("\n");
-        else printf("-\n"); 
+        // if(print_start) printf("\n");
+        // else printf("-\n"); 
     }
-    void query_conduct_to(){
+    void query_conduct_to(std::vector<Mail*>& out_mail_ptrs){
         #if DEBUG ==1
         postfix_print();
         #endif
+
+
         bool print_start = false;
         for( auto& mail_curr : to_dict[receiver] ){ // unordered_set
 			if(flag_from && mail_curr.second->getFrom()!= sender) continue;
@@ -107,15 +112,16 @@ namespace Query_related{
             }
             if(Container.size() != 1) printf("Error happened.\n");
             else if(Container.top() == true){
-                if(print_start) printf(" %d", mail_curr.first);
-                else{
-                    printf("%d", mail_curr.first);
-                    print_start = true;
-                }
+				out_mail_ptrs.push_back(&(*(mail_curr.second)));
+                // if(print_start) printf(" %d", mail_curr.first);
+                // else{
+                //     printf("%d", mail_curr.first);
+                //     print_start = true;
+                // }
             } 
         }
-        if(print_start) printf("\n");
-        else printf("-\n"); 
+        // if(print_start) printf("\n");
+        // else printf("-\n"); 
     }
     void debug_print(std::string& name){
         std::cout << "from_dict:[" << name << "]: ";
